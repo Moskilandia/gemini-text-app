@@ -25,23 +25,50 @@ export default async function handler(req: any, res: any) {
         body: JSON.stringify({
           model: model || "gpt-3.5-turbo",
           messages,
-          temperature: 0.7,
+          stream: true,
         }),
       }
     );
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      return res.status(500).json({
-        error: data?.error?.message || "OpenAI API error",
-      });
+    if (!response.ok || !response.body) {
+      const err = await response.text();
+      return res.status(500).json({ error: err });
     }
 
-    return res.status(200).json({
-      text: data.choices[0].message.content,
+    // STREAM SETUP
+    res.writeHead(200, {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Transfer-Encoding": "chunked",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
     });
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder("utf-8");
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value, { stream: true });
+      const lines = chunk.split("\n").filter(Boolean);
+
+      for (const line of lines) {
+        if (!line.startsWith("data:")) continue;
+        if (line.includes("[DONE]")) return res.end();
+
+        try {
+          const json = JSON.parse(line.replace("data:", ""));
+          const token = json.choices?.[0]?.delta?.content;
+          if (token) res.write(token);
+        } catch {
+          // ignore malformed chunks
+        }
+      }
+    }
+
+    res.end();
   } catch (err: any) {
-    return res.status(500).json({ error: err.message });
+    res.status(500).end(err.message);
   }
 }
