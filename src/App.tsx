@@ -13,10 +13,15 @@ export default function App() {
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [model, setModel] = useState("gpt-3.5-turbo");
+  const [listening, setListening] = useState(false);
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
 
   const bottomRef = useRef<HTMLDivElement>(null);
+  const recognitionRef = useRef<any>(null);
 
-  // Load saved chat + model
+  /* =====================
+     Load persisted state
+  ===================== */
   useEffect(() => {
     const savedChat = localStorage.getItem(STORAGE_KEY);
     const savedModel = localStorage.getItem(MODEL_KEY);
@@ -25,13 +30,63 @@ export default function App() {
     if (savedModel) setModel(savedModel);
   }, []);
 
-  // Persist chat + model
+  /* =====================
+     Persist state
+  ===================== */
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
     localStorage.setItem(MODEL_KEY, model);
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, model]);
 
+  /* =====================
+     Speech Recognition
+  ===================== */
+  function startListening() {
+    const SpeechRecognition =
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      alert("Speech recognition not supported in this browser.");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = "en-US";
+    recognition.interimResults = false;
+    recognition.continuous = false;
+
+    recognition.onstart = () => setListening(true);
+    recognition.onend = () => setListening(false);
+
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setInput(transcript);
+    };
+
+    recognition.start();
+    recognitionRef.current = recognition;
+  }
+
+  /* =====================
+     Text-to-Speech
+  ===================== */
+  function speak(text: string) {
+    if (!voiceEnabled) return;
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1;
+    utterance.pitch = 1;
+    utterance.lang = "en-US";
+
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utterance);
+  }
+
+  /* =====================
+     Send Message (Streaming)
+  ===================== */
   async function sendMessage() {
     if (!input.trim() || streaming) return;
 
@@ -55,6 +110,7 @@ export default function App() {
     if (!reader) return;
 
     const decoder = new TextDecoder();
+    let fullResponse = "";
 
     while (true) {
       const { value, done } = await reader.read();
@@ -66,11 +122,13 @@ export default function App() {
       for (const line of lines) {
         if (line.startsWith("data: ")) {
           const token = line.replace("data: ", "");
+          fullResponse += token;
+
           setMessages((prev) => {
             const updated = [...prev];
             updated[updated.length - 1] = {
               role: "assistant",
-              content: updated[updated.length - 1].content + token,
+              content: fullResponse,
             };
             return updated;
           });
@@ -79,6 +137,7 @@ export default function App() {
     }
 
     setStreaming(false);
+    speak(fullResponse);
   }
 
   function clearChat() {
@@ -86,21 +145,26 @@ export default function App() {
     setMessages([]);
   }
 
+  /* =====================
+     UI
+  ===================== */
   return (
     <div style={styles.container}>
-      <h1>OpenAI Chat App</h1>
+      <h1>AI Voice Chat</h1>
 
-      {/* Model selector */}
-      <select
-        value={model}
-        onChange={(e) => setModel(e.target.value)}
-        style={styles.select}
-      >
-        <option value="gpt-3.5-turbo">GPT-3.5 Turbo (Cheapest)</option>
-        <option value="gpt-4o-mini">GPT-4o Mini</option>
-        <option value="gpt-4o">GPT-4o (Paid)</option>
-        <option value="gpt-4">GPT-4 (Paid)</option>
-      </select>
+      <div style={styles.controls}>
+        <select value={model} onChange={(e) => setModel(e.target.value)}>
+          <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+          <option value="gpt-4o-mini">GPT-4o Mini</option>
+          <option value="gpt-4o">GPT-4o</option>
+        </select>
+
+        <button onClick={() => setVoiceEnabled(!voiceEnabled)}>
+          {voiceEnabled ? "🔊 Voice On" : "🔇 Voice Off"}
+        </button>
+
+        <button onClick={clearChat}>Clear</button>
+      </div>
 
       <div style={styles.chat}>
         {messages.map((m, i) => (
@@ -115,29 +179,26 @@ export default function App() {
             }}
           >
             {m.content}
-            {streaming && i === messages.length - 1 && (
-              <span> ▍</span>
-            )}
           </div>
         ))}
         <div ref={bottomRef} />
       </div>
 
-      <textarea
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-        placeholder="Ask something…"
-        rows={3}
-        style={styles.input}
-      />
+      <div style={styles.inputRow}>
+        <textarea
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="Speak or type…"
+          rows={2}
+          style={styles.input}
+        />
 
-      <div style={{ display: "flex", gap: "0.5rem" }}>
-        <button onClick={sendMessage} disabled={streaming}>
-          {streaming ? "Thinking…" : "Send"}
+        <button onClick={startListening}>
+          {listening ? "🎙️ Listening…" : "🎤 Speak"}
         </button>
 
-        <button onClick={clearChat} style={{ background: "#7c2d12" }}>
-          Clear
+        <button onClick={sendMessage} disabled={streaming}>
+          Send
         </button>
       </div>
     </div>
@@ -146,18 +207,23 @@ export default function App() {
 
 const styles = {
   container: {
-    maxWidth: 800,
+    maxWidth: 900,
     margin: "0 auto",
     padding: "1rem",
     color: "white",
     background: "#111827",
     minHeight: "100vh",
   },
+  controls: {
+    display: "flex",
+    gap: "0.5rem",
+    marginBottom: "0.75rem",
+  },
   chat: {
     display: "flex",
     flexDirection: "column" as const,
     gap: "0.75rem",
-    marginBottom: "1rem",
+    marginBottom: "0.75rem",
   },
   bubble: {
     maxWidth: "80%",
@@ -165,15 +231,14 @@ const styles = {
     borderRadius: "12px",
     whiteSpace: "pre-wrap" as const,
   },
+  inputRow: {
+    display: "flex",
+    gap: "0.5rem",
+  },
   input: {
-    width: "100%",
-    marginBottom: "0.5rem",
+    flex: 1,
     padding: "0.5rem",
     background: "#1f2933",
     color: "white",
-  },
-  select: {
-    marginBottom: "0.75rem",
-    padding: "0.4rem",
   },
 };
