@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
-const MODEL = "gemini-1.5-flash-latest";
+const MODEL = "gemini-1.5-flash";
 
 export default async function handler(
   req: VercelRequest,
@@ -50,18 +50,10 @@ export default async function handler(
       });
     }
 
-    // 🔴 Explicitly handle blocked / empty generations
-    if (!data?.candidates || data.candidates.length === 0) {
-      return res.status(200).json({
-        text:
-          "Gemini did not return a response. This may be due to safety filtering or model constraints.",
-      });
-    }
-
     const text =
-      data.candidates[0].content.parts
-        .map((part: any) => part.text)
-        .join("");
+      data?.candidates?.[0]?.content?.parts
+        ?.map((part: any) => part.text)
+        .join("") || "Empty response from Gemini";
 
     return res.status(200).json({ text });
   } catch (err: any) {
