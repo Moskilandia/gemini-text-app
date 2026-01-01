@@ -15,25 +15,13 @@ export default function Chat() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  async function sendMessage() {
-    if (!input.trim() || streaming) return;
-
-    const updatedMessages: Message[] = [
-      ...messages,
-      { role: "user", content: input },
-      { role: "assistant", content: "" },
-    ];
-
-    setMessages(updatedMessages);
-    setInput("");
+  async function streamAssistant(messagesToSend: Message[]) {
     setStreaming(true);
 
     const res = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        messages: updatedMessages.slice(0, -1), // send history only
-      }),
+      body: JSON.stringify({ messages: messagesToSend }),
     });
 
     const reader = res.body?.getReader();
@@ -61,7 +49,6 @@ export default function Chat() {
 
           if (token) {
             assistantText += token;
-
             setMessages(prev => {
               const copy = [...prev];
               copy[copy.length - 1] = {
@@ -71,13 +58,45 @@ export default function Chat() {
               return copy;
             });
           }
-        } catch {
-          // ignore malformed chunks
-        }
+        } catch {}
       }
     }
 
     setStreaming(false);
+  }
+
+  async function sendMessage() {
+    if (!input.trim() || streaming) return;
+
+    const updated: Message[] = [
+      ...messages,
+      { role: "user", content: input },
+      { role: "assistant", content: "" },
+    ];
+
+    setMessages(updated);
+    setInput("");
+
+    await streamAssistant(updated.slice(0, -1));
+  }
+
+  async function regenerate() {
+    if (streaming) return;
+
+    // Remove last assistant message only
+    const trimmed = messages.filter(
+      (m, i) =>
+        !(i === messages.length - 1 && m.role === "assistant")
+    );
+
+    const withPlaceholder: Message[] = [
+      ...trimmed,
+      { role: "assistant", content: "" },
+    ];
+
+    setMessages(withPlaceholder);
+
+    await streamAssistant(trimmed);
   }
 
   return (
@@ -106,9 +125,18 @@ export default function Chat() {
         }}
       />
 
-      <button onClick={sendMessage} disabled={streaming}>
-        {streaming ? "Thinking…" : "Send"}
-      </button>
+      <div className="actions">
+        <button onClick={sendMessage} disabled={streaming}>
+          Send
+        </button>
+
+        {messages.length >= 2 &&
+          messages[messages.length - 1].role === "assistant" && (
+            <button onClick={regenerate} disabled={streaming}>
+              🔄 Regenerate
+            </button>
+          )}
+      </div>
     </div>
   );
 }
