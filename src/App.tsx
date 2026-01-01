@@ -7,31 +7,33 @@ function App() {
   const [error, setError] = useState("");
 
   async function handleSubmit() {
-    if (!prompt.trim()) return;
+  if (!prompt.trim()) return;
 
-    setLoading(true);
-    setError("");
-    setResponse("");
+  setLoading(true);
+  setError("");
+  setResponse("");
 
-    try {
-     const text = await res.text();
+  try {
+    const res = await fetch("/api/gemini", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt }),
+    });
 
-if (!res.ok) {
-  throw new Error(text || "Request failed");
-}
+    const text = await res.text();
 
-const data = JSON.parse(text);
-setResponse(data.text);
-
-      }
-
-      setResponse(data.text);
-    } catch (err: any) {
-      setError(err.message || "Something went wrong");
-    } finally {
-      setLoading(false);
+    if (!res.ok) {
+      throw new Error(text || "Request failed");
     }
+
+    const data = JSON.parse(text);
+    setResponse(data.text);
+  } catch (err: any) {
+    setError(err.message || "Something went wrong");
+  } finally {
+    setLoading(false);
   }
+}
 
   return (
     <div style={{ maxWidth: 800, margin: "2rem auto", padding: "1rem" }}>
