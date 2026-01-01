@@ -1,9 +1,6 @@
 export const config = {
   runtime: "edge",
 };
-export const config = {
-  runtime: "edge",
-};
 
 export default async function handler(req: Request): Promise<Response> {
   if (req.method !== "POST") {
@@ -44,7 +41,7 @@ export default async function handler(req: Request): Promise<Response> {
 
   try {
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -63,8 +60,6 @@ export default async function handler(req: Request): Promise<Response> {
         }),
       }
     );
-
-    clearTimeout(timeout);
 
     const data = await response.json();
 
@@ -90,7 +85,6 @@ export default async function handler(req: Request): Promise<Response> {
         .join("") || "Empty response";
 
     return new Response(JSON.stringify({ text }), { status: 200 });
-
   } catch (err: any) {
     if (err?.name === "AbortError") {
       return new Response(
