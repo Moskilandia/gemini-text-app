@@ -5,32 +5,49 @@ type Message = {
   content: string;
 };
 
+const STORAGE_KEY = "openai-chat-history";
+const MODEL_KEY = "openai-chat-model";
+
 export default function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
+  const [model, setModel] = useState("gpt-3.5-turbo");
+
   const bottomRef = useRef<HTMLDivElement>(null);
 
+  // Load saved chat + model
   useEffect(() => {
+    const savedChat = localStorage.getItem(STORAGE_KEY);
+    const savedModel = localStorage.getItem(MODEL_KEY);
+
+    if (savedChat) setMessages(JSON.parse(savedChat));
+    if (savedModel) setModel(savedModel);
+  }, []);
+
+  // Persist chat + model
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+    localStorage.setItem(MODEL_KEY, model);
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, model]);
 
   async function sendMessage() {
     if (!input.trim() || streaming) return;
 
     const userMessage: Message = { role: "user", content: input };
-    setMessages((m) => [...m, userMessage]);
+    const assistantMessage: Message = { role: "assistant", content: "" };
+
+    setMessages((prev) => [...prev, userMessage, assistantMessage]);
     setInput("");
     setStreaming(true);
-
-    const assistantMessage: Message = { role: "assistant", content: "" };
-    setMessages((m) => [...m, assistantMessage]);
 
     const res = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         messages: [...messages, userMessage],
+        model,
       }),
     });
 
@@ -53,8 +70,7 @@ export default function App() {
             const updated = [...prev];
             updated[updated.length - 1] = {
               role: "assistant",
-              content:
-                updated[updated.length - 1].content + token,
+              content: updated[updated.length - 1].content + token,
             };
             return updated;
           });
@@ -65,9 +81,26 @@ export default function App() {
     setStreaming(false);
   }
 
+  function clearChat() {
+    localStorage.removeItem(STORAGE_KEY);
+    setMessages([]);
+  }
+
   return (
     <div style={styles.container}>
       <h1>OpenAI Chat App</h1>
+
+      {/* Model selector */}
+      <select
+        value={model}
+        onChange={(e) => setModel(e.target.value)}
+        style={styles.select}
+      >
+        <option value="gpt-3.5-turbo">GPT-3.5 Turbo (Cheapest)</option>
+        <option value="gpt-4o-mini">GPT-4o Mini</option>
+        <option value="gpt-4o">GPT-4o (Paid)</option>
+        <option value="gpt-4">GPT-4 (Paid)</option>
+      </select>
 
       <div style={styles.chat}>
         {messages.map((m, i) => (
@@ -83,7 +116,7 @@ export default function App() {
           >
             {m.content}
             {streaming && i === messages.length - 1 && (
-              <span className="cursor">▍</span>
+              <span> ▍</span>
             )}
           </div>
         ))}
@@ -98,9 +131,15 @@ export default function App() {
         style={styles.input}
       />
 
-      <button onClick={sendMessage} disabled={streaming}>
-        {streaming ? "Thinking…" : "Send"}
-      </button>
+      <div style={{ display: "flex", gap: "0.5rem" }}>
+        <button onClick={sendMessage} disabled={streaming}>
+          {streaming ? "Thinking…" : "Send"}
+        </button>
+
+        <button onClick={clearChat} style={{ background: "#7c2d12" }}>
+          Clear
+        </button>
+      </div>
     </div>
   );
 }
@@ -132,5 +171,9 @@ const styles = {
     padding: "0.5rem",
     background: "#1f2933",
     color: "white",
+  },
+  select: {
+    marginBottom: "0.75rem",
+    padding: "0.4rem",
   },
 };
