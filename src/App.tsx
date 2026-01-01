@@ -17,50 +17,65 @@ export default function App() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
-  async function sendPrompt() {
-    if (!prompt.trim() || loading) return;
+ async function sendPrompt() {
+  if (!prompt.trim() || loading) return;
 
-    const newMessages: Message[] = [
-      ...messages,
-      { role: "user", content: prompt },
-    ];
+  const updatedMessages = [
+    ...messages,
+    { role: "user", content: prompt },
+  ];
 
-    setMessages(newMessages);
-    setPrompt("");
-    setLoading(true);
+  setMessages(updatedMessages);
+  setPrompt("");
+  setLoading(true);
 
-    try {
-      const res = await fetch("/api/openai", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: newMessages,
-          model,
-        }),
-      });
+  // Add empty assistant message for streaming
+  setMessages((prev) => [
+    ...prev,
+    { role: "assistant", content: "" },
+  ]);
 
-      const data = await res.json();
+  try {
+    const res = await fetch("/api/openai", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        messages: updatedMessages,
+        model,
+      }),
+    });
 
-      if (!res.ok) {
-        throw new Error(data?.error || "Request failed");
-      }
+    if (!res.body) throw new Error("No stream");
 
-      setMessages([
-        ...newMessages,
-        { role: "assistant", content: data.text },
-      ]);
-    } catch (err: any) {
-      setMessages([
-        ...newMessages,
-        {
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder("utf-8");
+
+    let aiText = "";
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+
+      aiText += decoder.decode(value);
+
+      setMessages((prev) => {
+        const copy = [...prev];
+        copy[copy.length - 1] = {
           role: "assistant",
-          content: `Error: ${err.message}`,
-        },
-      ]);
-    } finally {
-      setLoading(false);
+          content: aiText,
+        };
+        return copy;
+      });
     }
+  } catch (err: any) {
+    setMessages((prev) => [
+      ...prev,
+      { role: "assistant", content: `Error: ${err.message}` },
+    ]);
+  } finally {
+    setLoading(false);
   }
+}
 
   return (
     <div
