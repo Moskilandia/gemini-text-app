@@ -18,20 +18,22 @@ export default function Chat() {
   async function sendMessage() {
     if (!input.trim() || streaming) return;
 
-    const newMessages: Message[] = [
+    const updatedMessages: Message[] = [
       ...messages,
       { role: "user", content: input },
       { role: "assistant", content: "" },
     ];
 
-    setMessages(newMessages);
+    setMessages(updatedMessages);
     setInput("");
     setStreaming(true);
 
     const res = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages: newMessages.slice(0, -1) }),
+      body: JSON.stringify({
+        messages: updatedMessages.slice(0, -1), // send history only
+      }),
     });
 
     const reader = res.body?.getReader();
@@ -56,8 +58,10 @@ export default function Chat() {
         try {
           const json = JSON.parse(data);
           const token = json.choices?.[0]?.delta?.content;
+
           if (token) {
             assistantText += token;
+
             setMessages(prev => {
               const copy = [...prev];
               copy[copy.length - 1] = {
@@ -82,7 +86,9 @@ export default function Chat() {
         {messages.map((m, i) => (
           <div key={i} className={`bubble ${m.role}`}>
             {m.content}
-            {streaming && i === messages.length - 1 && <span className="cursor">▍</span>}
+            {streaming && i === messages.length - 1 && (
+              <span className="cursor">▍</span>
+            )}
           </div>
         ))}
         <div ref={bottomRef} />
@@ -92,7 +98,12 @@ export default function Chat() {
         placeholder="Ask something…"
         value={input}
         onChange={e => setInput(e.target.value)}
-        onKeyDown={e => e.key === "Enter" && !e.shiftKey && sendMessage()}
+        onKeyDown={e => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+          }
+        }}
       />
 
       <button onClick={sendMessage} disabled={streaming}>
