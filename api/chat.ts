@@ -1,37 +1,39 @@
-export const config = {
-  runtime: "edge",
-};
+.chat-container {
+  max-width: 800px;
+  margin: auto;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
 
-export default async function handler(req: Request): Promise<Response> {
-  if (req.method !== "POST") {
-    return new Response("Method Not Allowed", { status: 405 });
-  }
+.chat-window {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
 
-  const { messages } = await req.json();
+.bubble {
+  max-width: 75%;
+  padding: 12px;
+  margin-bottom: 10px;
+  border-radius: 10px;
+  white-space: pre-wrap;
+}
 
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    return new Response("OPENAI_API_KEY not set", { status: 500 });
-  }
+.user {
+  background: #444;
+  align-self: flex-end;
+}
 
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "gpt-3.5-turbo",
-      messages,
-      stream: true,
-    }),
-  });
+.assistant {
+  background: #222;
+  align-self: flex-start;
+}
 
-  return new Response(response.body, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      "Connection": "keep-alive",
-    },
-  });
+.cursor {
+  animation: blink 1s infinite;
+}
+
+@keyframes blink {
+  50% { opacity: 0; }
 }
