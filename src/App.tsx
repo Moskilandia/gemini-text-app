@@ -1,66 +1,55 @@
 import { useState } from "react";
 
-function App() {
+export default function App() {
   const [prompt, setPrompt] = useState("");
   const [response, setResponse] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
 
-  async function handleSubmit() {
-  if (!prompt.trim()) return;
+  async function sendPrompt() {
+    setLoading(true);
+    setResponse("");
 
-  setLoading(true);
-  setError("");
-  setResponse("");
+    try {
+      const res = await fetch("/api/openai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt }),
+      });
 
-  try {
-    const res = await fetch("/api/gemini", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt }),
-    });
+      const data = await res.json();
 
-    const text = await res.text();
+      if (!res.ok) {
+        throw new Error(data.error || "Request failed");
+      }
 
-    if (!res.ok) {
-      throw new Error(text || "Request failed");
+      setResponse(data.text);
+    } catch (err: any) {
+      setResponse(err.message);
+    } finally {
+      setLoading(false);
     }
-
-    const data = JSON.parse(text);
-    setResponse(data.text);
-  } catch (err: any) {
-    setError(err.message || "Something went wrong");
-  } finally {
-    setLoading(false);
   }
-}
 
   return (
-    <div style={{ maxWidth: 800, margin: "2rem auto", padding: "1rem" }}>
-      <h1>Gemini Text App</h1>
+    <div style={{ padding: 40 }}>
+      <h1>OpenAI Text App</h1>
 
       <textarea
         value={prompt}
         onChange={(e) => setPrompt(e.target.value)}
         rows={6}
-        style={{ width: "100%", marginBottom: "1rem" }}
-        placeholder="Enter a prompt for Gemini..."
+        style={{ width: "100%" }}
+        placeholder="Ask something..."
       />
 
-      <button onClick={handleSubmit} disabled={loading}>
-        {loading ? "Thinking..." : "Send to Gemini"}
+      <br /><br />
+
+      <button onClick={sendPrompt} disabled={loading}>
+        {loading ? "Thinking..." : "Send to OpenAI"}
       </button>
 
-      {error && <p style={{ color: "red" }}>{error}</p>}
-
-      {response && (
-        <div style={{ marginTop: "2rem", whiteSpace: "pre-wrap" }}>
-          <h3>Response:</h3>
-          <p>{response}</p>
-        </div>
-      )}
+      <h3>Response:</h3>
+      <pre>{response}</pre>
     </div>
   );
 }
-
-export default App;
