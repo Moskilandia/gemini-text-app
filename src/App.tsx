@@ -64,5 +64,5 @@ function App() {
 }
 
 export default App;
-feat: add basic Gemini UI
+
 
