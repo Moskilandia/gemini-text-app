@@ -32,34 +32,32 @@ export default async function handler(req: Request): Promise<Response> {
     );
   }
 
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 25_000);
+
   try {
-const controller = new AbortController();
-const timeout = setTimeout(() => controller.abort(), 25_000); // 25s max
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
+        body: JSON.stringify({
+          contents: [
+            {
+              role: "user",
+              parts: [{ text: prompt }],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 256,
+          },
+        }),
+      }
+    );
 
-const response = await fetch(
-  "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=" +
-    apiKey,
-  {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    signal: controller.signal,
-    body: JSON.stringify({
-      contents: [
-        {
-          role: "user",
-          parts: [{ text: prompt }],
-        },
-      ],
-      generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 256, // ↓ lower to avoid stalls
-      },
-    }),
-  }
-);
-
-clearTimeout(timeout);
-
+    clearTimeout(timeout);
 
     const data = await response.json();
 
@@ -72,16 +70,33 @@ clearTimeout(timeout);
       );
     }
 
+    if (!data?.candidates?.length) {
+      return new Response(
+        JSON.stringify({ error: "Gemini returned no candidates" }),
+        { status: 502 }
+      );
+    }
+
     const text =
-      data?.candidates?.[0]?.content?.parts
+      data.candidates[0].content?.parts
         ?.map((p: any) => p.text)
-        .join("") ?? "Empty response";
+        .join("") || "Empty response";
 
     return new Response(JSON.stringify({ text }), { status: 200 });
+
   } catch (err: any) {
+    if (err?.name === "AbortError") {
+      return new Response(
+        JSON.stringify({ error: "Gemini request timed out" }),
+        { status: 504 }
+      );
+    }
+
     return new Response(
       JSON.stringify({ error: err?.message || "Server error" }),
       { status: 500 }
     );
+  } finally {
+    clearTimeout(timeout);
   }
 }
