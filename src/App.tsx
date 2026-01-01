@@ -14,16 +14,15 @@ function App() {
     setResponse("");
 
     try {
-      const res = await fetch("/api/gemini", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt }),
-      });
+     const text = await res.text();
 
-      const data = await res.json();
+if (!res.ok) {
+  throw new Error(text || "Request failed");
+}
 
-      if (!res.ok) {
-        throw new Error(data?.error || "Request failed");
+const data = JSON.parse(text);
+setResponse(data.text);
+
       }
 
       setResponse(data.text);
