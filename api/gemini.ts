@@ -34,9 +34,9 @@ export default async function handler(req: Request) {
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
             temperature: 0.7,
-            maxOutputTokens: 512,
-          },
-        }),
+            maxOutputTokens: 512
+          }
+        })
       }
     );
 
@@ -44,9 +44,7 @@ export default async function handler(req: Request) {
 
     if (!response.ok) {
       return new Response(
-        JSON.stringify({
-          error: data?.error?.message || "Gemini API error",
-        }),
+        JSON.stringify({ error: data?.error?.message || "Gemini API error" }),
         { status: response.status }
       );
     }
@@ -59,4 +57,8 @@ export default async function handler(req: Request) {
     return new Response(JSON.stringify({ text }), { status: 200 });
   } catch (err: any) {
     return new Response(
-      JSON.stringify({ error: err?.m
+      JSON.stringify({ error: err?.message || "Unexpected server error" }),
+      { status: 500 }
+    );
+  }
+}
