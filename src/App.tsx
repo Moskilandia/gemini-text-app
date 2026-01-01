@@ -8,176 +8,129 @@ type Message = {
 export default function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [streaming, setStreaming] = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
 
-  const bottomRef = useRef<HTMLDivElement | null>(null);
-
-  // Auto-scroll on new messages
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, loading]);
+  }, [messages]);
 
   async function sendMessage() {
-    if (!input.trim() || loading) return;
+    if (!input.trim() || streaming) return;
 
     const userMessage: Message = { role: "user", content: input };
-
-    setMessages((prev) => [...prev, userMessage]);
+    setMessages((m) => [...m, userMessage]);
     setInput("");
-    setLoading(true);
+    setStreaming(true);
 
-    try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: [...messages, userMessage],
-        }),
-      });
+    const assistantMessage: Message = { role: "assistant", content: "" };
+    setMessages((m) => [...m, assistantMessage]);
 
-      const data = await res.json();
+    const res = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        messages: [...messages, userMessage],
+      }),
+    });
 
-      if (!res.ok) {
-        throw new Error(data?.error || "Request failed");
+    const reader = res.body?.getReader();
+    if (!reader) return;
+
+    const decoder = new TextDecoder();
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value);
+      const lines = chunk.split("\n").filter(Boolean);
+
+      for (const line of lines) {
+        if (line.startsWith("data: ")) {
+          const token = line.replace("data: ", "");
+          setMessages((prev) => {
+            const updated = [...prev];
+            updated[updated.length - 1] = {
+              role: "assistant",
+              content:
+                updated[updated.length - 1].content + token,
+            };
+            return updated;
+          });
+        }
       }
-
-      const assistantMessage: Message = {
-        role: "assistant",
-        content: data.text,
-      };
-
-      setMessages((prev) => [...prev, assistantMessage]);
-    } catch (err: any) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: `⚠️ ${err.message || "Something went wrong"}`,
-        },
-      ]);
-    } finally {
-      setLoading(false);
     }
+
+    setStreaming(false);
   }
 
   return (
-    <div style={styles.app}>
-      <h1 style={styles.title}>OpenAI Chat App</h1>
+    <div style={styles.container}>
+      <h1>OpenAI Chat App</h1>
 
       <div style={styles.chat}>
-        {messages.map((msg, i) => (
+        {messages.map((m, i) => (
           <div
             key={i}
             style={{
               ...styles.bubble,
-              ...(msg.role === "user"
-                ? styles.userBubble
-                : styles.aiBubble),
+              alignSelf:
+                m.role === "user" ? "flex-end" : "flex-start",
+              background:
+                m.role === "user" ? "#4b5563" : "#374151",
             }}
           >
-            {msg.content}
+            {m.content}
+            {streaming && i === messages.length - 1 && (
+              <span className="cursor">▍</span>
+            )}
           </div>
         ))}
-
-        {loading && (
-          <div style={{ ...styles.bubble, ...styles.aiBubble }}>
-            Thinking<span style={styles.cursor}>▍</span>
-          </div>
-        )}
-
         <div ref={bottomRef} />
       </div>
 
-      <div style={styles.inputRow}>
-        <textarea
-          style={styles.textarea}
-          rows={2}
-          placeholder="Ask something…"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              sendMessage();
-            }
-          }}
-        />
-        <button style={styles.button} onClick={sendMessage} disabled={loading}>
-          Send
-        </button>
-      </div>
+      <textarea
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        placeholder="Ask something…"
+        rows={3}
+        style={styles.input}
+      />
+
+      <button onClick={sendMessage} disabled={streaming}>
+        {streaming ? "Thinking…" : "Send"}
+      </button>
     </div>
   );
 }
 
-/* ===================== STYLES ===================== */
-
-const styles: Record<string, React.CSSProperties> = {
-  app: {
-    minHeight: "100vh",
-    background: "#1f1f1f",
-    color: "#fff",
-    display: "flex",
-    flexDirection: "column",
-    padding: "1rem",
-    maxWidth: "800px",
+const styles = {
+  container: {
+    maxWidth: 800,
     margin: "0 auto",
-  },
-  title: {
-    textAlign: "center",
-    marginBottom: "1rem",
+    padding: "1rem",
+    color: "white",
+    background: "#111827",
+    minHeight: "100vh",
   },
   chat: {
-    flex: 1,
-    overflowY: "auto",
-    padding: "1rem",
-    background: "#2a2a2a",
-    borderRadius: "8px",
+    display: "flex",
+    flexDirection: "column" as const,
+    gap: "0.75rem",
     marginBottom: "1rem",
   },
   bubble: {
-    maxWidth: "85%",
+    maxWidth: "80%",
     padding: "0.75rem 1rem",
-    marginBottom: "0.75rem",
     borderRadius: "12px",
-    lineHeight: 1.4,
-    whiteSpace: "pre-wrap",
-    wordBreak: "break-word",
+    whiteSpace: "pre-wrap" as const,
   },
-  userBubble: {
-    background: "#4b8cff",
-    alignSelf: "flex-end",
-    marginLeft: "auto",
-  },
-  aiBubble: {
-    background: "#3a3a3a",
-    alignSelf: "flex-start",
-    marginRight: "auto",
-  },
-  inputRow: {
-    display: "flex",
-    gap: "0.5rem",
-  },
-  textarea: {
-    flex: 1,
-    resize: "none",
-    padding: "0.75rem",
-    borderRadius: "8px",
-    border: "none",
-    outline: "none",
-    fontSize: "1rem",
-  },
-  button: {
-    padding: "0 1rem",
-    borderRadius: "8px",
-    border: "none",
-    background: "#4b8cff",
-    color: "#fff",
-    fontSize: "1rem",
-    cursor: "pointer",
-  },
-  cursor: {
-    marginLeft: "4px",
-    animation: "blink 1s infinite",
+  input: {
+    width: "100%",
+    marginBottom: "0.5rem",
+    padding: "0.5rem",
+    background: "#1f2933",
+    color: "white",
   },
 };
