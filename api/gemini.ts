@@ -1,61 +1,42 @@
-import type { VercelRequest, VercelResponse } from "@vercel/node";
-
-export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse
-) {
+export default async function handler(req: any, res: any) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method Not Allowed" });
   }
 
-  const prompt = req.body?.prompt;
+  const { prompt } = req.body || {};
   if (!prompt || typeof prompt !== "string") {
-    return res.status(400).json({ error: "Missing or invalid prompt" });
+    return res.status(400).json({ error: "Invalid prompt" });
   }
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    return res.status(500).json({ error: "GEMINI_API_KEY not set" });
+    return res.status(500).json({ error: "Missing GEMINI_API_KEY" });
   }
 
   try {
-    const response = await fetch(
+    const r = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contents: [
-            {
-              role: "user",
-              parts: [{ text: prompt }],
-            },
-          ],
-          generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 256,
-          },
+          contents: [{ parts: [{ text: prompt }] }],
         }),
       }
     );
 
-    const data = await response.json();
+    const data = await r.json();
 
-    if (!response.ok) {
-      return res.status(response.status).json({
-        error: data?.error?.message || "Gemini API error",
-      });
+    if (!r.ok) {
+      return res.status(500).json({ error: data?.error?.message });
     }
 
     const text =
-      data?.candidates?.[0]?.content?.parts
-        ?.map((p: any) => p.text)
-        .join("") || "Empty response";
+      data?.candidates?.[0]?.content?.parts?.[0]?.text ||
+      "No response from Gemini";
 
     return res.status(200).json({ text });
-  } catch (err: any) {
-    return res.status(500).json({
-      error: err?.message || "Unexpected server error",
-    });
+  } catch (e: any) {
+    return res.status(500).json({ error: e.message });
   }
 }
