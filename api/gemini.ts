@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
-const MODEL = "gemini-1.5-flash";
+const MODEL = "gemini-1.0-pro";
 
 export default async function handler(
   req: VercelRequest,
