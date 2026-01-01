@@ -34,14 +34,14 @@ export default async function handler(
       }
     );
 
-    const data = await response.json();
+   const data = await response.json();
 
-    const text =
-      data?.candidates?.[0]?.content?.parts?.[0]?.text ??
-      "No response from Gemini";
+const text =
+  data?.candidates?.[0]?.content?.parts
+    ?.map((part: any) => part.text)
+    .join("") || "No response from Gemini";
 
-    return res.status(200).json({ text });
-  } catch (err: any) {
-    return res.status(500).json({ error: err.message });
+return res.status(200).json({ text });
+
   }
 }
