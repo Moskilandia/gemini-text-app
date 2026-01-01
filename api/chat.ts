@@ -1,10 +1,8 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 const SYSTEM_PROMPT = `
-You are a helpful, clear, and concise AI assistant.
-Respond in plain English.
-If a question is unclear, ask for clarification.
-Avoid unnecessary verbosity.
+You are a helpful, concise assistant.
+Respond clearly and professionally.
 `;
 
 export default async function handler(
@@ -12,7 +10,7 @@ export default async function handler(
   res: VercelResponse
 ) {
   if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method Not Allowed" });
+    return res.status(405).end();
   }
 
   const apiKey = process.env.OPENAI_API_KEY;
@@ -21,49 +19,41 @@ export default async function handler(
   }
 
   const { messages } = req.body || {};
-
   if (!Array.isArray(messages)) {
-    return res.status(400).json({ error: "Messages must be an array" });
+    return res.status(400).json({ error: "Invalid messages array" });
   }
 
-  try {
-    // Inject system message at the top
-    const payloadMessages = [
-      { role: "system", content: SYSTEM_PROMPT },
-      ...messages,
-    ].slice(-20); // keep last 20 messages to control token usage
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    Connection: "keep-alive",
+  });
 
-    const response = await fetch(
-      "https://api.openai.com/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: "gpt-3.5-turbo",
-          messages: payloadMessages,
-          temperature: 0.7,
-        }),
-      }
-    );
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      return res.status(500).json({
-        error: data?.error?.message || "OpenAI API error",
-      });
+  const response = await fetch(
+    "https://api.openai.com/v1/chat/completions",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-3.5-turbo",
+        stream: true,
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          ...messages,
+        ].slice(-20),
+      }),
     }
+  );
 
-    const text =
-      data.choices?.[0]?.message?.content || "No response";
-
-    return res.status(200).json({ text });
-  } catch (err: any) {
-    return res.status(500).json({
-      error: err.message || "Server error",
-    });
+  const reader = response.body?.getReader();
+  if (!reader) {
+    res.end();
+    return;
   }
-}
+
+  const decoder = new TextDecoder();
+
+  while (true) {
