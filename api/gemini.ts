@@ -59,8 +59,4 @@ export default async function handler(req: Request) {
     return new Response(JSON.stringify({ text }), { status: 200 });
   } catch (err: any) {
     return new Response(
-      JSON.stringify({ error: err?.message || "Unexpected server error" }),
-      { status: 500 }
-    );
-  }
-}
+      JSON.stringify({ error: err?.m
