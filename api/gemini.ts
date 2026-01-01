@@ -1,22 +1,27 @@
-import type { VercelRequest, VercelResponse } from "@vercel/node";
-
-export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse
-) {
+export default async function handler(req: Request) {
   if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method Not Allowed" });
+    return new Response(
+      JSON.stringify({ error: "Method Not Allowed" }),
+      { status: 405 }
+    );
   }
 
-  const prompt = req.body?.prompt;
+  const body = await req.json().catch(() => null);
+  const prompt = body?.prompt;
 
   if (!prompt || typeof prompt !== "string") {
-    return res.status(400).json({ error: "Missing or invalid prompt" });
+    return new Response(
+      JSON.stringify({ error: "Missing or invalid prompt" }),
+      { status: 400 }
+    );
   }
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    return res.status(500).json({ error: "GEMINI_API_KEY not set" });
+    return new Response(
+      JSON.stringify({ error: "GEMINI_API_KEY not set" }),
+      { status: 500 }
+    );
   }
 
   try {
@@ -38,9 +43,12 @@ export default async function handler(
     const data = await response.json();
 
     if (!response.ok) {
-      return res.status(response.status).json({
-        error: data?.error?.message || "Gemini API error",
-      });
+      return new Response(
+        JSON.stringify({
+          error: data?.error?.message || "Gemini API error",
+        }),
+        { status: response.status }
+      );
     }
 
     const text =
@@ -48,10 +56,11 @@ export default async function handler(
         ?.map((p: any) => p.text)
         .join("") || "Empty response";
 
-    return res.status(200).json({ text });
+    return new Response(JSON.stringify({ text }), { status: 200 });
   } catch (err: any) {
-    return res.status(500).json({
-      error: err?.message || "Unexpected server error",
-    });
+    return new Response(
+      JSON.stringify({ error: err?.message || "Unexpected server error" }),
+      { status: 500 }
+    );
   }
 }
