@@ -1,4 +1,4 @@
-export default async function handler(req: Request) {
+export default async function handler(req: Request): Promise<Response> {
   if (req.method !== "POST") {
     return new Response(
       JSON.stringify({ error: "Method Not Allowed" }),
@@ -6,9 +6,17 @@ export default async function handler(req: Request) {
     );
   }
 
-  const body = await req.json().catch(() => null);
-  const prompt = body?.prompt;
+  let body: any;
+  try {
+    body = await req.json();
+  } catch {
+    return new Response(
+      JSON.stringify({ error: "Invalid JSON body" }),
+      { status: 400 }
+    );
+  }
 
+  const prompt = body?.prompt;
   if (!prompt || typeof prompt !== "string") {
     return new Response(
       JSON.stringify({ error: "Missing or invalid prompt" }),
@@ -26,17 +34,23 @@ export default async function handler(req: Request) {
 
   try {
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`,
+      "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=" +
+        apiKey,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
+          contents: [
+            {
+              role: "user",
+              parts: [{ text: prompt }],
+            },
+          ],
           generationConfig: {
             temperature: 0.7,
-            maxOutputTokens: 512
-          }
-        })
+            maxOutputTokens: 512,
+          },
+        }),
       }
     );
 
@@ -44,7 +58,9 @@ export default async function handler(req: Request) {
 
     if (!response.ok) {
       return new Response(
-        JSON.stringify({ error: data?.error?.message || "Gemini API error" }),
+        JSON.stringify({
+          error: data?.error?.message || "Gemini API error",
+        }),
         { status: response.status }
       );
     }
@@ -52,12 +68,12 @@ export default async function handler(req: Request) {
     const text =
       data?.candidates?.[0]?.content?.parts
         ?.map((p: any) => p.text)
-        .join("") || "Empty response";
+        .join("") ?? "Empty response";
 
     return new Response(JSON.stringify({ text }), { status: 200 });
   } catch (err: any) {
     return new Response(
-      JSON.stringify({ error: err?.message || "Unexpected server error" }),
+      JSON.stringify({ error: err?.message || "Server error" }),
       { status: 500 }
     );
   }
