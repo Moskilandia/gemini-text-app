@@ -33,26 +33,33 @@ export default async function handler(req: Request): Promise<Response> {
   }
 
   try {
-    const response = await fetch(
-      "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=" +
-        apiKey,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [
-            {
-              role: "user",
-              parts: [{ text: prompt }],
-            },
-          ],
-          generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 512,
-          },
-        }),
-      }
-    );
+const controller = new AbortController();
+const timeout = setTimeout(() => controller.abort(), 25_000); // 25s max
+
+const response = await fetch(
+  "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=" +
+    apiKey,
+  {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    signal: controller.signal,
+    body: JSON.stringify({
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: prompt }],
+        },
+      ],
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 256, // ↓ lower to avoid stalls
+      },
+    }),
+  }
+);
+
+clearTimeout(timeout);
+
 
     const data = await response.json();
 
