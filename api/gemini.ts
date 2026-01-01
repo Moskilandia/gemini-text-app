@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
-const MODEL = "gemini-1.0-pro";
+const MODEL = "gemini-pro";
 
 export default async function handler(
   req: VercelRequest,
@@ -30,7 +30,6 @@ export default async function handler(
         body: JSON.stringify({
           contents: [
             {
-              role: "user",
               parts: [{ text: prompt }],
             },
           ],
@@ -52,7 +51,7 @@ export default async function handler(
 
     const text =
       data?.candidates?.[0]?.content?.parts
-        ?.map((part: any) => part.text)
+        ?.map((p: any) => p.text)
         .join("") || "Empty response from Gemini";
 
     return res.status(200).json({ text });
