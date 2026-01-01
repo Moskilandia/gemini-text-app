@@ -1,5 +1,4 @@
 import { useState } from "react";
-import "./App.css";
 
 function App() {
   const [prompt, setPrompt] = useState("");
@@ -62,7 +61,5 @@ function App() {
     </div>
   );
 }
-import { useState } from "react";
-import "./App.css";
 
-
+export default App;
