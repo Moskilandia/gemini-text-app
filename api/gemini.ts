@@ -1,39 +1,21 @@
-export const config = {
-  runtime: "edge",
-};
+import type { VercelRequest, VercelResponse } from "@vercel/node";
 
-export default async function handler(req: Request): Promise<Response> {
+export default async function handler(
+  req: VercelRequest,
+  res: VercelResponse
+) {
   if (req.method !== "POST") {
-    return new Response(
-      JSON.stringify({ error: "Method Not Allowed" }),
-      { status: 405 }
-    );
+    return res.status(405).json({ error: "Method Not Allowed" });
   }
 
-  let body: any;
-  try {
-    body = await req.json();
-  } catch {
-    return new Response(
-      JSON.stringify({ error: "Invalid JSON body" }),
-      { status: 400 }
-    );
-  }
-
-  const prompt = body?.prompt;
+  const prompt = req.body?.prompt;
   if (!prompt || typeof prompt !== "string") {
-    return new Response(
-      JSON.stringify({ error: "Missing or invalid prompt" }),
-      { status: 400 }
-    );
+    return res.status(400).json({ error: "Missing or invalid prompt" });
   }
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    return new Response(
-      JSON.stringify({ error: "GEMINI_API_KEY not set" }),
-      { status: 500 }
-    );
+    return res.status(500).json({ error: "GEMINI_API_KEY not set" });
   }
 
   try {
@@ -51,7 +33,7 @@ export default async function handler(req: Request): Promise<Response> {
           ],
           generationConfig: {
             temperature: 0.7,
-            maxOutputTokens: 128,
+            maxOutputTokens: 256,
           },
         }),
       }
@@ -60,12 +42,9 @@ export default async function handler(req: Request): Promise<Response> {
     const data = await response.json();
 
     if (!response.ok) {
-      return new Response(
-        JSON.stringify({
-          error: data?.error?.message || "Gemini API error",
-        }),
-        { status: response.status }
-      );
+      return res.status(response.status).json({
+        error: data?.error?.message || "Gemini API error",
+      });
     }
 
     const text =
@@ -73,11 +52,10 @@ export default async function handler(req: Request): Promise<Response> {
         ?.map((p: any) => p.text)
         .join("") || "Empty response";
 
-    return new Response(JSON.stringify({ text }), { status: 200 });
+    return res.status(200).json({ text });
   } catch (err: any) {
-    return new Response(
-      JSON.stringify({ error: err?.message || "Server error" }),
-      { status: 500 }
-    );
+    return res.status(500).json({
+      error: err?.message || "Unexpected server error",
+    });
   }
 }
