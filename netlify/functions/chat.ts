@@ -45,9 +45,14 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    const body = event.body ? JSON.parse(event.body) : {};
-    const messages = parseMessages((body as any)?.messages);
+    let parsed: any = {};
+    try {
+      parsed = event.body ? JSON.parse(event.body) : {};
+    } catch {
+      parsed = {};
+    }
 
+    const messages = parseMessages(parsed?.messages);
     if (messages.length === 0) {
       return {
         statusCode: 400,
@@ -56,16 +61,20 @@ export const handler: Handler = async (event) => {
       };
     }
 
+    const userText = messages
+      .filter((m) => m.role === "user")
+      .map((m) => m.content)
+      .join("\n");
+
     const client = new OpenAI({ apiKey });
     const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
 
-    const completion = await client.chat.completions.create({
+    const response = await client.responses.create({
       model,
-      messages,
-      temperature: 0.7,
+      input: userText,
     });
 
-    const text = completion.choices?.[0]?.message?.content?.trim() || "";
+    const text = response.output_text || "";
 
     return {
       statusCode: 200,
