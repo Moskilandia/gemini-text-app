@@ -43,7 +43,23 @@ export default function Chat() {
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error ${response.status}`);
+        let detail = "";
+        try {
+          const errBody = await response.json();
+          detail =
+            typeof errBody?.detail === "string"
+              ? errBody.detail
+              : typeof errBody?.error === "string"
+                ? errBody.error
+                : JSON.stringify(errBody);
+        } catch {
+          try {
+            detail = await response.text();
+          } catch {
+            detail = "";
+          }
+        }
+        throw new Error(`HTTP ${response.status}${detail ? `: ${detail}` : ""}`);
       }
 
       const data: { text?: string } = await response.json();
@@ -61,7 +77,10 @@ export default function Chat() {
         ...prev,
         {
           role: "assistant",
-          content: "⚠️ Error contacting server",
+          content:
+            error instanceof Error
+              ? `⚠️ ${error.message}`
+              : "⚠️ Error contacting server",
         },
       ]);
     } finally {
