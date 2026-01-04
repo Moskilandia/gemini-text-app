@@ -10,12 +10,13 @@ export default function Chat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, loading]);
+  }, [messages, loading, isTyping]);
 
   async function sendMessage() {
     if (!input.trim() || loading) return;
@@ -31,6 +32,7 @@ export default function Chat() {
     setMessages([...updatedMessages, { role: "assistant", content: "" }]);
     setInput("");
     setLoading(true);
+    setIsTyping(true);
 
     try {
       const response = await fetch("/api/chat", {
@@ -165,6 +167,7 @@ export default function Chat() {
       });
     } finally {
       setLoading(false);
+      setIsTyping(false);
     }
   }
 
@@ -177,7 +180,7 @@ export default function Chat() {
           </div>
         ))}
 
-        {loading && (
+        {isTyping && (
           <div className="bubble assistant typing">
             Typing…
           </div>
