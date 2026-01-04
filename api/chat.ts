@@ -48,7 +48,12 @@ export default async function handler(
   }
 
   try {
-    const apiKey = process.env.OPENAI_API_KEY;
+    const apiKeyRaw = process.env.OPENAI_API_KEY;
+    const apiKey = (apiKeyRaw ?? "")
+      .trim()
+      .replace(/^['\"]+/, "")
+      .replace(/['\"]+$/, "");
+
     if (!apiKey) {
       return res.status(500).json({ error: "Missing OPENAI_API_KEY" });
     }
