@@ -5,7 +5,6 @@
 [functions]
   directory = "netlify/functions"
 
-[[redirects]]
-  from = "/api/chat"
-  to = "/.netlify/functions/chat"
-  status = 200
+[[edge_functions]]
+  function = "chat"
+  path = "/api/chat"
