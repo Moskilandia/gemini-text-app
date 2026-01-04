@@ -182,7 +182,7 @@ export default function Chat() {
 
         {isTyping && (
           <div className="bubble assistant typing">
-            Typing…
+            Assistant is typing<span className="cursor">▍</span>
           </div>
         )}
 
