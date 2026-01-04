@@ -5,6 +5,25 @@ type ChatMessage = {
   content: string;
 };
 
+async function readRequestBody(req: any): Promise<any> {
+  if (req?.body != null) {
+    if (typeof req.body === "string") {
+      return req.body ? JSON.parse(req.body) : {};
+    }
+    return req.body;
+  }
+
+  const chunks: Buffer[] = [];
+  await new Promise<void>((resolve, reject) => {
+    req.on("data", (chunk: Buffer) => chunks.push(chunk));
+    req.on("end", () => resolve());
+    req.on("error", reject);
+  });
+
+  const text = Buffer.concat(chunks).toString("utf8");
+  return text ? JSON.parse(text) : {};
+}
+
 function parseMessages(value: unknown): ChatMessage[] {
   if (!Array.isArray(value)) return [];
   return value
@@ -20,26 +39,24 @@ function parseMessages(value: unknown): ChatMessage[] {
     .map((m) => ({ role: m.role, content: m.content }));
 }
 
-export default async function handler(req: any, res: any) {
+export default async function handler(
+  req: any,
+  res: any
+) {
   if (req.method !== "POST") {
-    res.status(405).json({ error: "Method not allowed" });
-    return;
-  }
-
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    res.status(500).json({ error: "Missing OPENAI_API_KEY" });
-    return;
+    return res.status(405).json({ error: "Method not allowed" });
   }
 
   try {
-    const body =
-      typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body ?? {});
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ error: "Missing OPENAI_API_KEY" });
+    }
 
-    const messages = parseMessages((body as any).messages);
+    const body = await readRequestBody(req);
+    const messages = parseMessages((body as any)?.messages);
     if (messages.length === 0) {
-      res.status(400).json({ error: "Missing messages" });
-      return;
+      return res.status(400).json({ error: "Missing messages" });
     }
 
     const client = new OpenAI({ apiKey });
@@ -53,9 +70,13 @@ export default async function handler(req: any, res: any) {
 
     const text = completion.choices?.[0]?.message?.content?.trim() || "";
 
-    res.status(200).json({ text });
-  } catch (error) {
-    console.error("/api/chat error:", error);
-    res.status(500).json({ error: "Server error" });
+    return res.status(200).json({ text });
+  } catch (err: any) {
+    console.error("API ERROR:", err);
+
+    return res.status(500).json({
+      error: "Server error",
+      detail: err?.message || String(err),
+    });
   }
 }
