@@ -3,6 +3,13 @@ type ChatMessage = {
   content: string;
 };
 
+const SYSTEM_PROMPT = `
+You are a helpful project assistant.
+You help users plan, organize, and execute projects.
+You ask clarifying questions, suggest next steps,
+and keep answers clear and actionable.
+`;
+
 function json(status: number, payload: unknown): Response {
   return new Response(JSON.stringify(payload), {
     status,
@@ -73,6 +80,7 @@ export default async function handler(req: Request): Promise<Response> {
     },
     body: JSON.stringify({
       model,
+      instructions: SYSTEM_PROMPT,
       input: userText,
       stream: true,
     }),

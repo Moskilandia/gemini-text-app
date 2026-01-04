@@ -6,6 +6,13 @@ type ChatMessage = {
   content: string;
 };
 
+const SYSTEM_PROMPT = `
+You are a helpful project assistant.
+You help users plan, organize, and execute projects.
+You ask clarifying questions, suggest next steps,
+and keep answers clear and actionable.
+`;
+
 function parseMessages(value: unknown): ChatMessage[] {
   if (!Array.isArray(value)) return [];
   return value
@@ -71,6 +78,7 @@ export const handler: Handler = async (event) => {
 
     const response = await client.responses.create({
       model,
+      instructions: SYSTEM_PROMPT,
       input: userText,
     });
 

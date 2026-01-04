@@ -5,6 +5,13 @@ type ChatMessage = {
   content: string;
 };
 
+const SYSTEM_PROMPT = `
+You are a helpful project assistant.
+You help users plan, organize, and execute projects.
+You ask clarifying questions, suggest next steps,
+and keep answers clear and actionable.
+`;
+
 async function readRequestBody(req: any): Promise<any> {
   if (req?.body != null) {
     if (typeof req.body === "string") {
@@ -69,7 +76,7 @@ export default async function handler(
 
     const completion = await client.chat.completions.create({
       model,
-      messages,
+      messages: [{ role: "system", content: SYSTEM_PROMPT }, ...messages],
       temperature: 0.7,
     });
 
