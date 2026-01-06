@@ -3,11 +3,62 @@ type ChatMessage = {
   content: string;
 };
 
+const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX = 30;
+
+function getClientKey(req: Request): string {
+  const forwarded = req.headers.get("x-forwarded-for");
+  const ip = forwarded ? forwarded.split(",")[0]?.trim() : undefined;
+  return ip || req.headers.get("x-nf-client-connection-ip") || "anonymous";
+}
+
+function isRateLimited(key: string): { limited: boolean; retryAfterSeconds: number } {
+  const now = Date.now();
+  const current = rateLimitStore.get(key);
+
+  if (!current || now >= current.resetAt) {
+    const resetAt = now + RATE_LIMIT_WINDOW_MS;
+    rateLimitStore.set(key, { count: 1, resetAt });
+    return { limited: false, retryAfterSeconds: 0 };
+  }
+
+  current.count += 1;
+  if (current.count > RATE_LIMIT_MAX) {
+    const retryAfterSeconds = Math.max(1, Math.ceil((current.resetAt - now) / 1000));
+    return { limited: true, retryAfterSeconds };
+  }
+
+  return { limited: false, retryAfterSeconds: 0 };
+}
+
+type AllowedModel = "gpt-4o-mini" | "gpt-4o";
+
+function parseModel(value: unknown): AllowedModel | undefined {
+  if (value === "gpt-4o-mini" || value === "gpt-4o") return value;
+  return undefined;
+}
+
 const SYSTEM_PROMPT = `
-You are a helpful project assistant.
-You help users plan, organize, and execute projects.
-You ask clarifying questions, suggest next steps,
-and keep answers clear and actionable.
+You are a practical decision assistant.
+
+Your role is to help users think clearly, plan effectively, and make informed decisions.
+You prioritize clarity, structure, and usefulness over verbosity.
+
+Guidelines:
+- Ask clarifying questions when the request is ambiguous.
+- Break complex problems into steps or options.
+- Offer concise answers by default, with the option to go deeper if needed.
+- Clearly state assumptions and uncertainties.
+- Avoid unnecessary speculation or overconfidence.
+- Be neutral, respectful, and supportive.
+
+When appropriate:
+- Suggest next steps.
+- Provide examples.
+- Summarize key points.
+
+Your goal is to help the user move forward with confidence.
 `;
 
 function json(status: number, payload: unknown): Response {
@@ -47,6 +98,18 @@ export default async function handler(req: Request): Promise<Response> {
     return json(405, { error: "Method not allowed" });
   }
 
+  const rl = isRateLimited(getClientKey(req));
+  if (rl.limited) {
+    return new Response(JSON.stringify({ error: "Rate limit exceeded" }), {
+      status: 429,
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-store",
+        "Retry-After": String(rl.retryAfterSeconds),
+      },
+    });
+  }
+
   const apiKey = normalizeKey((globalThis as any).Deno?.env?.get?.("OPENAI_API_KEY"));
   if (!apiKey) {
     return json(500, { error: "Missing OPENAI_API_KEY" });
@@ -64,13 +127,23 @@ export default async function handler(req: Request): Promise<Response> {
     return json(400, { error: "Missing messages" });
   }
 
-  const userText = messages
-    .filter((m) => m.role === "user")
-    .map((m) => m.content)
-    .join("\n");
+  const tier = body?.tier;
 
+  const provider = body?.provider ?? "openai";
+  if (provider !== "openai") {
+    return json(400, {
+      error: "Unsupported provider",
+      detail: "Only provider 'openai' is supported by this endpoint.",
+    });
+  }
+
+  const conversation = [{ role: "system", content: SYSTEM_PROMPT }, ...messages];
+  const input = conversation.map(m => `${m.role}: ${m.content}`).join("\n");
+
+  const requestedModel = parseModel(body?.model);
   const model =
-    normalizeKey((globalThis as any).Deno?.env?.get?.("OPENAI_MODEL")) || "gpt-4o-mini";
+    (requestedModel ??
+      (normalizeKey((globalThis as any).Deno?.env?.get?.("OPENAI_MODEL")) || "gpt-4o-mini")) as AllowedModel;
 
   const upstream = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
@@ -80,8 +153,7 @@ export default async function handler(req: Request): Promise<Response> {
     },
     body: JSON.stringify({
       model,
-      instructions: SYSTEM_PROMPT,
-      input: userText,
+      input,
       stream: true,
     }),
   });

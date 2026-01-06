@@ -11,6 +11,30 @@
     sans-serif;
 }
 
+.app-header {
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.app-title {
+  font-size: 1.6rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.app-tagline {
+  font-size: 0.9rem;
+  opacity: 0.8;
+  margin-top: 0.25rem;
+}
+
+.app-footer {
+  text-align: center;
+  font-size: 0.75rem;
+  opacity: 0.6;
+  margin-top: 1rem;
+}
+
 /* Message list */
 .messages {
   flex: 1;
@@ -19,6 +43,27 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.empty-state {
+  text-align: center;
+  opacity: 0.85;
+  margin-top: 2rem;
+}
+
+.empty-title {
+  font-weight: 500;
+  margin-bottom: 0.25rem;
+}
+
+.empty-text {
+  font-size: 0.9rem;
+}
+
+.about {
+  font-size: 0.9rem;
+  opacity: 0.85;
+  margin: 1.5rem 0;
 }
 
 /* Chat bubbles */
@@ -77,6 +122,43 @@
   background-color: #000;
 }
 
+/* Model picker */
+.model-picker {
+  margin: 1rem 0;
+}
+
+.model-label {
+  font-weight: 500;
+}
+
+.model-helper {
+  font-size: 0.85rem;
+  opacity: 0.8;
+  margin: 0.25rem 0 0.5rem;
+}
+
+.model-picker select {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: none;
+  outline: none;
+  background-color: #222;
+  color: #fff;
+  font-size: 14px;
+}
+
+.model-description {
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+  opacity: 0.9;
+}
+
+.usage-meter {
+  font-size: 0.8rem;
+  opacity: 0.75;
+  margin-top: 0.25rem;
+}
+
 /* Text input */
 .input-row input {
   flex: 1;
@@ -109,9 +191,117 @@
   cursor: not-allowed;
 }
 
+.upgrade-button {
+  background: linear-gradient(90deg, #8b5cf6, #6366f1);
+  color: white;
+  border: none;
+  padding: 0.4rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.premium-badge {
+  background: linear-gradient(90deg, #f59e0b, #f97316);
+  color: white;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  margin-left: 0.5rem;
+}
+
+/* Upgrade modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+.modal {
+  background: #111827;
+  color: white;
+  padding: 1.5rem;
+  border-radius: 10px;
+  max-width: 420px;
+  width: 100%;
+}
+
+.modal-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.modal-body {
+  font-size: 14px;
+  color: #bbb;
+  margin-bottom: 12px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.modal-actions button {
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: none;
+  background-color: #0a84ff;
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.plans {
+  display: grid;
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.plan {
+  border: 1px solid rgba(255,255,255,0.1);
+  padding: 1rem;
+  border-radius: 8px;
+}
+
+.plan.highlight {
+  border-color: #8b5cf6;
+}
+
+.plan button {
+  width: 100%;
+  margin-top: 0.5rem;
+}
+
+.close {
+  background: none;
+  color: #9ca3af;
+  margin-top: 0.5rem;
+}
+
 /* Mobile tweaks */
 @media (max-width: 600px) {
   .chat-container {
+.empty-state {
+  text-align: center;
+  opacity: 0.85;
+  margin-top: 2rem;
+}
     max-width: 100%;
   }
 
