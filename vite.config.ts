@@ -66,16 +66,14 @@ function devChatApiPlugin(mode: string): Plugin {
 }
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
-  plugins: [
-    react(),
-    devChatApiPlugin(mode),
-    VitePluginSitemap({
-      hostname: 'https://reasonly.ai',
-      // Optionally, customize routes or exclude patterns here
-    }),
-  ],
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+
+export default defineConfig({
+  plugins: [react()],
+  base: "/",            // 👈 REQUIRED for Netlify + custom domain
   build: {
-    outDir: 'dist',
+    outDir: "dist",
+    emptyOutDir: true,
   },
-}))
+});
