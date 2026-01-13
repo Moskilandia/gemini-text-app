@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
+import VitePluginSitemap from 'vite-plugin-sitemap';
 import OpenAI from 'openai'
 
 function devChatApiPlugin(mode: string): Plugin {
@@ -66,7 +67,14 @@ function devChatApiPlugin(mode: string): Plugin {
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-  plugins: [react(), devChatApiPlugin(mode)],
+  plugins: [
+    react(),
+    devChatApiPlugin(mode),
+    VitePluginSitemap({
+      hostname: 'https://reasonly.ai',
+      // Optionally, customize routes or exclude patterns here
+    }),
+  ],
   build: {
     outDir: 'dist',
   },
